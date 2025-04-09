@@ -104,7 +104,12 @@ const generateInvoice = async (req, res) => {
   <tr>
     <td style="width: 50%; font-weight: bold;">Sub Total:</td>
     <td style="width: 50%; text-align: right;">
-      ${items.reduce((total, item) => total + ((parseFloat(item.price * item.quantity) || 0) * (parseInt(item.quantity) || 1)), 0).toFixed(2) + " " + currency}
+    ${(
+      items.reduce((total, item) => total + ((parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1)), 0) +
+      (parseFloat(taxableAmount) || 0) +
+      (parseFloat(vat) || 0)
+    ).toFixed(2) + " " + currency
+    }
     </td>
   </tr>
   <tr>
@@ -118,8 +123,8 @@ const generateInvoice = async (req, res) => {
   <tr style="border-top: 1px solid #ddd;">
     <td style="width: 50%; font-weight: bold;">Amount Due:</td>
     <td style="width: 50%; text-align: right;">
-      ${(
-      items.reduce((total, item) => total + ((parseFloat(item.price * item.quantity) || 0) * (parseInt(item.quantity) || 1)), 0) +
+    ${(
+      items.reduce((total, item) => total + ((parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1)), 0) +
       (parseFloat(taxableAmount) || 0) +
       (parseFloat(vat) || 0)
     ).toFixed(2) + " " + currency
