@@ -25,6 +25,19 @@ const transporter1 = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS2
   }
 });
+// Configure Nodemailer transporter- adwoa@tuaneka.ai
+const transporter3 = nodemailer.createTransport({
+  host: "smtp.office365.com",
+  port: 587,
+  secure: false, // must be false for Microsoft 365
+  auth: {
+    user: process.env.EMAIL_USER3, // your Microsoft 365 email
+    pass: process.env.EMAIL_PASS3  // your app password or actual password
+  },
+  tls: {
+    ciphers: 'SSLv3'
+  }
+});
 
 const date = new Date();
 const formattedDate = `${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`;
@@ -272,13 +285,11 @@ const generateInvoice = async (req, res) => {
 
   try {
     await transporter1.sendMail({
-      from: process.env.EMAIL_USER3,
       to: customer_email,
       subject: "Your Invoice from Adwoa",
       html: htmlContent
     });
     await transporter1.sendMail({
-      from: process.env.EMAIL_USER3,
       to: business_email,
       subject: "Your Invoice from Adwoa",
       html: htmlContent2
@@ -756,6 +767,213 @@ try {
   }
 };
 
+// Send invoice to KFC Order
+
+const sendkfcinvoice = async (req, res) => {
+  try {
+    const {
+      customer_email,
+      customer_name,
+      customer_phone,
+      customer_location,
+      items,
+    } = req.body;
+
+    if (!customer_email || !items || !items.length) {
+      return res.status(400).json({ error: "Customer email and at least one item are required." });
+    }
+
+    // Calculate total price
+    const totalPrice = items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity || 1), 0);
+    const amountInPesewas = totalPrice * 100;
+
+    // Step 1: Initialize Paystack Payment
+    let paymentUrl;
+    try {
+      const paystackResponse = await axios.post(
+        "https://api.paystack.co/transaction/initialize",
+        {
+          email: customer_email,
+          amount: amountInPesewas,
+          metadata: {
+            customer_name: customer_name || "Unknown",
+            phone: customer_phone || "Unknown",
+            location: customer_location || "Unknown",
+            purpose: "KFC order"
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY_TEST2}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!paystackResponse.data?.data) {
+        throw new Error("Paystack did not return a valid response.");
+      }
+
+      paymentUrl = paystackResponse.data.data.authorization_url;
+    } catch (paystackError) {
+      console.error("❌ Paystack Error:", paystackError.response?.data || paystackError.message);
+      return res.status(500).json({ error: "Failed to initialize payment. Try again later." });
+    }
+
+    // Step 2: Create HTML Invoice
+    const itemsHtml = items.map(
+      (item) => `
+        <tr>
+          <td style="padding: 10px;">${item.product_name}</td>
+          <td style="padding: 10px;">${item.quantity || 1}</td>
+          <td style="padding: 10px;">GHS ${item.price}</td>
+        </tr>
+      `
+    ).join("");
+
+    const htmlContent = `
+    <html>
+    
+      <body style="font-family: Arial, sans-serif; background: #f9fafb; padding: 20px; text-align: center;">
+      
+        <div style="max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; 
+                    border: 2px solid rgba(0, 0, 0, 0.5); box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5); text-align: left;">
+          
+          <!-- Invoice Header -->
+          <table width="100%" style="border-collapse: collapse;">
+            <tr>
+              <td style="width: 50%; text-align: left;">
+                <h3 style="margin: 0;">Zuludesk Invoice</h3>
+                <img style="width:130px; height: 55px" src="https://pngimg.com/d/kfc_PNG21.png" />
+                <p><strong>K F C</strong></p>
+                <p>K F C  </p>
+                <p>${customer_email}</p>
+                <p>${customer_phone}</p>
+              </td>
+              <td style="width: 50%; text-align: right;">
+                <p><strong>Invoice Number: INV-${Math.floor(1000 + Math.random() * 9000)}</strong></p>
+                <p>Invoice Date: ${new Date().toLocaleDateString()}</p>
+                <p>Payment Due: ${new Date().toLocaleDateString()}</p>
+                <p><strong>Amount Due: GHS ${items.price}</strong></p>
+              </td>
+            </tr>
+          </table>
+  
+          <!-- Items Table -->
+          <table width="100%" border="1" style="border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="background: #333; color: white;">
+                <th style="padding: 10px;">Service</th>
+                <th style="padding: 10px;">Quantity</th>
+                <th style="padding: 10px;">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+                <tr>
+                  <td style="padding: 10px;">
+                    <strong>DESCRIPRTION OOO</strong><br>
+                  </td>
+                  <td style="padding: 10px;">1</td>
+                  <td style="padding: 10px;">${items.price}</td>
+                </tr>
+            </tbody>
+          </table>
+  
+          <!-- Total Section -->
+          <table width="100%" style="border-collapse: collapse; margin-top: 20px">
+            <tr>
+              <td style="width: 50%; font-weight: bold;">Sub Total:</td>
+              <td style="width: 50%; text-align: right;">${items.price}</td>
+            </tr>
+            <tr>
+              <td style="width: 50%; font-weight: bold;">Taxable Amount:</td>
+              <td style="width: 50%; text-align: right;">0</td>
+            </tr>
+            <tr>
+              <td style="width: 50%; font-weight: bold;">VAT:</td>
+              <td style="width: 50%; text-align: right;">0</td>
+            </tr>
+            <tr style="border-top: 1px solid #ddd;">
+              <td style="width: 50%; font-weight: bold;">Amount Due:</td>
+              <td style="width: 50%; text-align: right;">GHS ${items.price}</td>
+            </tr>
+          </table>
+  
+          <!-- Payment Info -->
+          <table width="100%" style="border-collapse: collapse;">
+            <tr>
+              <td style="width: 65%; vertical-align: top; font-size: 10px; line-height: 0.9">
+                <p style="margin-top: 20px; color: rgb(250, 71, 0);">NOTES AND TERMS</p>
+                <p>TeamAlfy Web Services</p>
+                <p>FWST/J#WAN: N202530012</p>
+                <p>Account Number: 12-1234-123456-12</p>
+                <p><strong>Please use INV-${Math.floor(1000 + Math.random() * 9000)} as a reference number.</strong></p>
+                <p>For any questions, contact <strong>Admin@teamalfy.com</strong></p>
+              </td>
+              <td style="text-align: right; padding-top:25px;">
+                <p>Pay online <br>
+                  <a style="color: rgb(238, 67, 0)" href="${paymentUrl}" target="_blank" style="
+                  display: inline-block;
+                  background: rgb(238, 67, 0);
+                  color: white;
+                  padding: 12px 20px;
+                  text-decoration: none;
+                  font-weight: bold;
+                  border-radius: 5px;
+                  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);" target="_blank">Pay Now</a>
+                </p>
+                <img style="width:70px" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(paymentUrl)}" 
+                     alt="QR Code" />
+              </td>
+            </tr>
+          </table>
+  
+      
+  
+        </div>
+            <!-- Payment Button -->
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="${paymentUrl}" target="_blank" style="
+              display: inline-block;
+              background: rgb(238, 67, 0);
+              color: white;
+              padding: 12px 20px;
+              text-decoration: none;
+              font-weight: bold;
+              border-radius: 5px;
+              box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            ">
+              Click to Pay Now
+            </a>
+          </div>
+      </body>
+    </html>`;
+
+    // Step 3: Send Email
+    const mailOptions = {
+      from: "adwoa@tuaneka.ai",
+      to: customer_email,
+      subject: "KFC Order Invoice",
+      html: htmlContent,
+    };
+
+    const info = await transporter1.sendMail(mailOptions);
+    console.log("✅ Email sent:", info.messageId);
+
+    res.status(200).json({
+      message: "Invoice sent successfully!",
+      paymentUrl,
+    });
+
+  } catch (error) {
+    console.error("❌ Error:", error.message || error);
+    res.status(500).json({ error: "An error occurred while processing the invoice." });
+  }
+};
+
+
+
+
 
 
 
@@ -898,4 +1116,4 @@ const verifyPaymentWebhook = async (req, res) => {
 
 
 
-module.exports = { generateInvoice, invoicepayment, openLink, sendMail, sendPaymentLink, verifyPaymentWebhook }
+module.exports = { generateInvoice, invoicepayment, openLink, sendMail, sendPaymentLink, verifyPaymentWebhook, sendkfcinvoice }
