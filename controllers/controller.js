@@ -779,10 +779,6 @@ const sendkfcinvoice = async (req, res) => {
       items,
     } = req.body;
 
-    if (!customer_email || !items || !items.length) {
-      return res.status(400).json({ error: "Customer email and at least one item are required." });
-    }
-
     // Calculate total price
     const totalPrice = items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity || 1), 0);
     const amountInPesewas = totalPrice * 100;
@@ -821,16 +817,6 @@ const sendkfcinvoice = async (req, res) => {
     }
 
     // Step 2: Create HTML Invoice
-    const itemsHtml = items.map(
-      (item) => `
-        <tr>
-          <td style="padding: 10px;">${item.product_name}</td>
-          <td style="padding: 10px;">${item.quantity || 1}</td>
-          <td style="padding: 10px;">GHS ${item.price}</td>
-        </tr>
-      `
-    ).join("");
-
     const htmlContent = `
     <html>
     
@@ -843,18 +829,17 @@ const sendkfcinvoice = async (req, res) => {
           <table width="100%" style="border-collapse: collapse;">
             <tr>
               <td style="width: 50%; text-align: left;">
-                <h3 style="margin: 0;">Zuludesk Invoice</h3>
+                <h3 style="margin: 0;">Tuaneka Invoice</h3>
                 <img style="width:130px; height: 55px" src="https://pngimg.com/d/kfc_PNG21.png" />
                 <p><strong>K F C</strong></p>
-                <p>K F C  </p>
+                <p>Accra branch  </p>
                 <p>${customer_email}</p>
-                <p>${customer_phone}</p>
               </td>
               <td style="width: 50%; text-align: right;">
                 <p><strong>Invoice Number: INV-${Math.floor(1000 + Math.random() * 9000)}</strong></p>
                 <p>Invoice Date: ${new Date().toLocaleDateString()}</p>
                 <p>Payment Due: ${new Date().toLocaleDateString()}</p>
-                <p><strong>Amount Due: GHS ${items.price}</strong></p>
+                <p><strong>Amount Due: GHS ${totalPrice}</strong></p>
               </td>
             </tr>
           </table>
@@ -863,7 +848,7 @@ const sendkfcinvoice = async (req, res) => {
           <table width="100%" border="1" style="border-collapse: collapse; text-align: left;">
             <thead>
               <tr style="background: #333; color: white;">
-                <th style="padding: 10px;">Service</th>
+                <th style="padding: 10px;">Item</th>
                 <th style="padding: 10px;">Quantity</th>
                 <th style="padding: 10px;">Price</th>
               </tr>
@@ -871,10 +856,11 @@ const sendkfcinvoice = async (req, res) => {
             <tbody>
                 <tr>
                   <td style="padding: 10px;">
-                    <strong>DESCRIPRTION OOO</strong><br>
+                    <strong>${items[0].item_name}</strong><br>
+                    <small>${items[0].item_description}</small>
                   </td>
-                  <td style="padding: 10px;">1</td>
-                  <td style="padding: 10px;">${items.price}</td>
+                  <td style="padding: 10px;">${items[0].quantity}</td>
+                  <td style="padding: 10px;">${items[0].price}</td>
                 </tr>
             </tbody>
           </table>
@@ -883,7 +869,7 @@ const sendkfcinvoice = async (req, res) => {
           <table width="100%" style="border-collapse: collapse; margin-top: 20px">
             <tr>
               <td style="width: 50%; font-weight: bold;">Sub Total:</td>
-              <td style="width: 50%; text-align: right;">${items.price}</td>
+              <td style="width: 50%; text-align: right;">${totalPrice}</td>
             </tr>
             <tr>
               <td style="width: 50%; font-weight: bold;">Taxable Amount:</td>
@@ -895,7 +881,7 @@ const sendkfcinvoice = async (req, res) => {
             </tr>
             <tr style="border-top: 1px solid #ddd;">
               <td style="width: 50%; font-weight: bold;">Amount Due:</td>
-              <td style="width: 50%; text-align: right;">GHS ${items.price}</td>
+              <td style="width: 50%; text-align: right;">GHS ${totalPrice}</td>
             </tr>
           </table>
   
